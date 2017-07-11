@@ -6,7 +6,7 @@ plat=x86_64
 
 list=("bash zsh make gcc ld as readelf objdump objcopy ls ar ld strip nm cc stty /usr/lib/gcc/x86_64-pc-linux-gnu/7.1.1/cc1 rm")
 list=("$list crti.o crt1.o crtn.o /usr/lib/libgcc_s.so /usr/lib/libc.so /usr/lib/libgcc_s.so.1 /usr/lib/ld-linux-x86-64.so.2 /usr/lib/libc_nonshared.a")
-list=("$list sh cat chmod sed touch mv grep mkdir tr cmp expr ln cp tail sort sleep uname uniq")
+list=("$list sh cat chmod sed touch mv grep mkdir tr cmp expr ln cp tail sort sleep uname uniq awk")
 cpbin() {
 	targetbin=$root/usr/bin/`basename $1`
 	echo 'copying executable '$1 ' to' $targetbin
