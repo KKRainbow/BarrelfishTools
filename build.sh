@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 add_suites() {
 #add_suite   name       arch     plat              build_dir		target_run
 add_suite    x86_64     x86_64   X86_64_Full       buildx86_64		qemu_x86_64
@@ -8,7 +8,7 @@ add_suite    vexpress   armv7    VExpressEMM-A15   buildvexpress	qemu_a15ve_4
 DOCKER=docker
 DOCKER_COMPOSE=docker-compose
 
-DOCKER_FILE=<<EOF
+read -d '' -r DOCKER_FILE <<EOF
 FROM ubuntu:16.04
 LABEL maintainer="sunsijie@buaa.edu.cn" \
 	  version="1.0"
@@ -28,7 +28,7 @@ RUN apt-get install -y gcc g++ git build-essential make \
 RUN cabal update && cabal install bytestring-trie
 EOF
 
-DOCKER_COMPOSE_FILE=<<EOF
+read -d '' -r DOCKER_COMPOSE_FILE <<EOF
 version: "3"
 services:
     srv:
@@ -41,17 +41,17 @@ services:
             - SYS_ADMIN
 EOF
 
-SOURCES_LIST=<<EOF
-deb http://mirrors.163.com/ubuntu/ xenial main restricted universe multiverse
-deb http://mirrors.163.com/ubuntu/ xenial-security main restricted universe multiverse
-deb http://mirrors.163.com/ubuntu/ xenial-updates main restricted universe multiverse
-deb http://mirrors.163.com/ubuntu/ xenial-proposed main restricted universe multiverse
-deb http://mirrors.163.com/ubuntu/ xenial-backports main restricted universe multiverse
-deb-src http://mirrors.163.com/ubuntu/ xenial main restricted universe multiverse
-deb-src http://mirrors.163.com/ubuntu/ xenial-security main restricted universe multiverse
-deb-src http://mirrors.163.com/ubuntu/ xenial-updates main restricted universe multiverse
-deb-src http://mirrors.163.com/ubuntu/ xenial-proposed main restricted universe multiverse
-deb-src http://mirrors.163.com/ubuntu/ xenial-backports main restricted universe multiverse
+read -d '' -r SOURCES_LIST <<EOF
+deb http://mirrors.aliyun.com/ubuntu/ xenial main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-proposed main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ xenial-backports main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ xenial main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ xenial-security main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ xenial-updates main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ xenial-proposed main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ xenial-backports main restricted universe multiverse
 EOF
 
 check_sudo() {
@@ -61,7 +61,7 @@ check_sudo() {
 	fi
 }
 
-declare -a NAMES
+declare -A NAMES
 declare -A SUITES 
 add_suite() {
 	local NAME=$1
@@ -69,7 +69,8 @@ add_suite() {
 	local PLAT=$3
 	local BUILD_DIR=$4
 	local TARGET_RUN=$5
-	NAMES=(${NAMES[@]} $NAME)
+    #NAMES=(${NAMES[@]} $NAME)
+    NAMES[$NAME]=$NAME
 	SUITES[${NAME}_arch]=$ARCH
 	SUITES[${NAME}_plat]=$PLAT
 	SUITES[${NAME}_dir]=$BUILD_DIR
@@ -162,17 +163,28 @@ execute_target_run() {
 	local TARGET_RUN=$1
 	IFS=$'\n'
 	cd ${BUILD_DIR}
-	local CMD=(`grep -A 1 "$1 :" Makefile | sed -r 's/^\s+//g'`)
-	eval "${CMD[1]}"
+	local CMD=(`grep -hA 1 "$1 :" Makefile | gsed -r 's/^\s+//g'`)
+	eval "${CMD[2]}"
 	cd -
 	exit
+}
+
+build_image() {
+    mkdir -p /tmp/barrelfish
+    echo "$SOURCES_LIST" > /tmp/barrelfish/sources.list
+    echo "$DOCKER_FILE" | docker build -t barrelfish -f - /tmp/barrelfish
+    rm -rf /tmp/barrelfish
+}
+
+run_image() {
+    docker run --name barrelfish -v $1:/root/barrelfish --cap-add SYS_ADMIN barrelfish /bin/bash -c 'sleep 999999'
 }
 
 case "$1" in
 	"make" )
 		select_suite
 		declare -a ARGS
-		if [ $# == 1 ];then
+		if [[ $# == 1 ]];then
 			ARGS[1]=$PLAT
 		else
 			ARGS=${@:2}
@@ -197,6 +209,17 @@ case "$1" in
 	"docker" )
 		shift
 		case "$1" in
+            build )
+                build_image 
+                ;;
+            run )
+                if [[ ! -d $2 ]];then
+                    echo "$2" is not barrelfish directory
+                    exit
+                fi
+                ABSPATH=$(cd "$(dirname "$0")"; pwd)
+                run_image "$ABSPATH"
+                ;;
 			* )
 				echo NYI
 				;;
