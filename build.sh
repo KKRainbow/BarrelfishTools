@@ -1,4 +1,18 @@
 #!/bin/zsh
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    SED=sed
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    if command -v gsed > /dev/null; then
+        SED=gsed
+    else
+        echo "Please install gnu-sed."
+        echo "e.g. brew install gnu-sed"
+    fi
+else
+    echo "Not support this OSTYPE: $OSTYPE"
+    exit 255
+fi
+
 add_suites() {
 #add_suite   name       arch     plat              build_dir		target_run
 add_suite    x86_64     x86_64   X86_64_Full       buildx86_64		qemu_x86_64
@@ -126,7 +140,7 @@ find_struct() {
 
 	IFS=$'\n'
 	RE='^([a-zA-Z0-9_/.]*):([[:digit:]]*):([[:print:]]*)'
-	RES=$(grep -nIr --include="*.h" "struct $STRUCT_NAME {")
+	RES=$(grep -nIr --include="*.h" "struct $STRUCT_NAME {" .)
 	FINDS=($RES)
 	num=0
 	declare -a FILE_LIST
@@ -163,8 +177,9 @@ execute_target_run() {
 	local TARGET_RUN=$1
 	IFS=$'\n'
 	cd ${BUILD_DIR}
-	local CMD=(`grep -hA 1 "$1 :" Makefile | gsed -r 's/^\s+//g'`)
-	eval "${CMD[2]}"
+	local CMD=(`grep -hA 1 "$1 :" Makefile | ${SED} -r 's/^\s+//g'`)
+    #echo "${CMD[2]}"
+    eval "${CMD[2]}"
 	cd -
 	exit
 }
@@ -177,7 +192,8 @@ build_image() {
 }
 
 run_image() {
-    docker run --name barrelfish -v $1:/root/barrelfish --cap-add SYS_ADMIN barrelfish /bin/bash -c 'sleep 999999'
+    docker run -d --name barrelfish -v $1:/root/barrelfish --cap-add SYS_ADMIN barrelfish /bin/bash -c 'sleep 999999'
+    echo "Container successfully start"
 }
 
 case "$1" in
