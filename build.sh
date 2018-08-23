@@ -13,10 +13,13 @@ else
     exit 255
 fi
 
+BARRELFISH_DIR=$(cd "$(dirname "$0")"; pwd)
+
 add_suites() {
 #add_suite   name       arch     plat              build_dir		target_run
 add_suite    x86_64     x86_64   X86_64_Full       buildx86_64		qemu_x86_64
 add_suite    vexpress   armv7    VExpressEMM-A15   buildvexpress	qemu_a15ve_4
+add_suite    tk1        armv7    JetsonTK1         buildtk1         qemu_a15ve_4
 }
 
 DOCKER=docker
@@ -115,10 +118,16 @@ print_help() {
 
 docker_run() {
 	check_sudo
+
+    rm_image
+    run_image "$PWD"
+
 	CNT=`docker ps --filter=name=barrelfish -aq`
 	DIR=/root/barrelfish/${BUILD_DIR}
 	${DOCKER} start $CNT;
 	${DOCKER} exec -it ${CNT} /bin/bash -c "(mkdir -p ${DIR};cd ${DIR};$1)"
+
+    rm_image
 }
 
 declare ARCH PLAT BUILD_DIR
@@ -191,10 +200,21 @@ build_image() {
     rm -rf /tmp/barrelfish
 }
 
+rm_image() {
+    docker rm -f $(docker ps -a --filter=name=barrelfish -q)
+    echo "Rm container successfully"
+}
+
 run_image() {
     docker run -d --name barrelfish -v $1:/root/barrelfish --cap-add SYS_ADMIN barrelfish /bin/bash -c 'sleep 999999'
     echo "Container successfully start"
 }
+
+# check PWD is barrelfish root
+if [[ ! -f $PWD/platforms/Hakefile ]]; then
+    echo "PWD is not barrelfish root"
+    exit -1
+fi
 
 case "$1" in
 	"make" )
@@ -227,14 +247,6 @@ case "$1" in
 		case "$1" in
             build )
                 build_image 
-                ;;
-            run )
-                if [[ ! -d $2 ]];then
-                    echo "$2" is not barrelfish directory
-                    exit
-                fi
-                ABSPATH=$(cd "$(dirname "$0")"; pwd)
-                run_image "$ABSPATH"
                 ;;
 			* )
 				echo NYI
